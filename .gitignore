@@ -1,7 +1,6 @@
 .ycm_extra_conf.py
 .ipynb_checkpoints
 __pycache__
-*.csv
 cache
 *.txt
 *.DS_Store
