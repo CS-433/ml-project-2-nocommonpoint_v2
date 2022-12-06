@@ -3,8 +3,31 @@ from collections import defaultdict
 import pandas as pd
 import numpy as np
 
+def assign_to_class(phq9_sum):
+    """
+    Assign the PHQ9 sum to its depression level, following the given convention:
+    - 0:     Class 0 (None)
+    - 1-9:   Class 1 (Mild = 1-4: Minimal, 5-9: Mild)
+    - 10-19: Class 2 (Moderate = 10-14: Moderate, 15-19: Moderately severe)
+    - 20-27: Class 3 (Severe = 20-27: Severe)
+
+    Args:
+        phq9_sum (int): the PHQ9 sum
+
+    Returns:
+        int: the corresponding depression level
+    """
+    if 1 <= phq9_sum and phq9_sum <= 9:
+        return 1
+    elif 10 <= phq9_sum and phq9_sum <= 19:
+        return 2
+    elif 20 <= phq9_sum and phq9_sum <= 27:
+        return 3
+    return 0
+
 # regression|classification & value|diff
-def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=True):
+def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=True, 
+                    four_classes=False):
     csv = pd.read_csv(phq9_path)
 
     # TODO: derived sum is used in the csv right now
@@ -22,7 +45,11 @@ def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=
         target_col = 'phq9_sum_diff' if target_diff else 'phq9_sum'
     elif type == 'classification':
         target_col = 'phq9_level_diff' if target_diff else 'phq9_level'
-        csv[target_col] -= 1
+        if not(target_diff) and four_classes:
+            target_col = 'phq9_sum'
+            csv[target_col] = csv[target_col].apply(assign_to_class)
+        else:
+            csv[target_col] -= 1
     else:
         raise ValueError(f'Invalid PHQ9 target type {type}')
 
