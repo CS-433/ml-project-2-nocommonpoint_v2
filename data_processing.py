@@ -3,79 +3,10 @@ from collections import defaultdict
 import pandas as pd
 import numpy as np
 
-def assign_to_class_3(phq9_sum):
-    if 0 <= phq9_sum and phq9_sum <= 4:
-        return 0
-    elif 5 <= phq9_sum and phq9_sum <= 14:
-        return 1
-    elif 15 <= phq9_sum and phq9_sum <= 27:
-        return 2
-    return 0
-
-def new_assign_to_class_4(phq9_sum):
-    if 0 <= phq9_sum and phq9_sum <= 4:
-        return 0
-    elif 5 <= phq9_sum and phq9_sum <= 9:
-        return 1
-    elif 10 <= phq9_sum and phq9_sum <= 14:
-        return 2
-    elif 15 <= phq9_sum and phq9_sum <= 27:
-        return 3
-    return 0
-
-def assign_to_class_4(phq9_sum):
-    """
-    Assign the PHQ9 sum to its depression level, following the given convention:
-    - 0:     Class 0 (None)
-    - 1-9:   Class 1 (Mild = 1-4: Minimal, 5-9: Mild)
-    - 10-19: Class 2 (Moderate = 10-14: Moderate, 15-19: Moderately severe)
-    - 20-27: Class 3 (Severe = 20-27: Severe)
-
-    Args:
-        phq9_sum (int): the PHQ9 sum
-
-    Returns:
-        int: the corresponding depression level
-    """
-    if 1 <= phq9_sum and phq9_sum <= 9:
-        return 1
-    elif 10 <= phq9_sum and phq9_sum <= 19:
-        return 2
-    elif 20 <= phq9_sum and phq9_sum <= 27:
-        return 3
-    return 0
-
-def assign_to_class_6(phq9_sum):
-    """
-    Assign the PHQ9 sum to its depression level, following the given convention:
-    - 0:     (None)
-    - 1-4:   Minimal depression
-    - 5-9:   Mild depression
-    - 10-14: Moderate depression
-    - 15-19: Moderately severe depression
-    - 20-27: Severe depression
-    
-    Args:
-        phq9_sum (int): the PHQ9 sum
-
-    Returns:
-        int: the corresponding depression level
-    """
-    if 1 <= phq9_sum and phq9_sum <= 4:
-        return 1
-    elif 5 <= phq9_sum and phq9_sum <= 9:
-        return 2
-    elif 10 <= phq9_sum and phq9_sum <= 14:
-        return 3
-    elif 15 <= phq9_sum and phq9_sum <= 19:
-        return 4
-    elif 20 <= phq9_sum and phq9_sum <= 27:
-        return 5
-    return 0
 
 # regression|classification & value|diff
-def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=True, 
-                    num_classes=0):
+def load_phq9_targets(phq9_path, type='classification', target='value', derived_sum=True, 
+                    classes_dict=None):
     csv = pd.read_csv(phq9_path)
 
     # TODO: derived sum is used in the csv right now
@@ -93,15 +24,9 @@ def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=
         target_col = 'phq9_sum_diff' if target_diff else 'phq9_sum'
     elif type == 'classification':
         target_col = 'phq9_level_diff' if target_diff else 'phq9_level'
-        if not(target_diff) and num_classes == 4:
+        if not(target_diff) and classes_dict is not None:
             target_col = 'phq9_sum'
-            csv[target_col] = csv[target_col].apply(new_assign_to_class_4)
-        elif not(target_diff) and num_classes == 6:
-            target_col = 'phq9_sum'
-            csv[target_col] = csv[target_col].apply(assign_to_class_6)
-        elif not(target_diff) and num_classes == 3:
-            target_col = 'phq9_sum'
-            csv[target_col] = csv[target_col].apply(assign_to_class_3)
+            csv[target_col] = csv[target_col].apply(lambda x: classes_dict[x])
         else:
             csv[target_col] -= 1
     else:

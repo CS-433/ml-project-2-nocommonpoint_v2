@@ -21,9 +21,9 @@ DATADIR = Path('data')
 def train(
     TYPE='classification', TARGET='value', SPLIT_BY_PARTICIPANT=False, 
     TEST_TAKE_FIRST=0, SEED=550, return_csv=False, 
-    feature_selection=False, num_classes=0):
+    feature_selection=False, classes_dict=None):
     
-    phq9 = dp.load_phq9_targets(DATADIR / 'df_phq9.csv', type=TYPE, target=TARGET, num_classes=num_classes)
+    phq9 = dp.load_phq9_targets(DATADIR / 'df_phq9.csv', type=TYPE, target=TARGET, classes_dict=classes_dict)
     locations = load_locations(DATADIR / 'df_location_ratio.csv')
     demographics = load_demographics(DATADIR / 'df_demographics.csv')
     #mobility = load_passive_mobility(DATADIR / 'df_passive_mobility_features.csv')
