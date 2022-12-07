@@ -28,12 +28,12 @@ def train(
     SEED=550,
     return_csv=False,
     feature_selection=False,
-    classes_dict=None,
+    partition=None,
     verbose=True,
 ):
 
     phq9 = dp.load_phq9_targets(
-        DATADIR / "df_phq9.csv", type=TYPE, target=TARGET, classes_dict=classes_dict
+        DATADIR / "df_phq9.csv", type=TYPE, target=TARGET, partition=partition
     )
     locations = load_locations(DATADIR / "df_location_ratio.csv")
     demographics = load_demographics(DATADIR / "df_demographics.csv")

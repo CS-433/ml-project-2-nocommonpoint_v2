@@ -10,7 +10,7 @@ def load_phq9_targets(
     type="classification",
     target="value",
     derived_sum=True,
-    classes_dict=None,
+    partition=None,
 ):
     csv = pd.read_csv(phq9_path)
 
@@ -29,9 +29,9 @@ def load_phq9_targets(
         target_col = "phq9_sum_diff" if target_diff else "phq9_sum"
     elif type == "classification":
         target_col = "phq9_level_diff" if target_diff else "phq9_level"
-        if not (target_diff) and classes_dict is not None:
+        if not (target_diff) and partition is not None:
             target_col = "phq9_sum"
-            csv[target_col] = csv[target_col].apply(lambda x: classes_dict[x])
+            csv[target_col] = csv[target_col].apply(lambda x: partition[x])
         else:
             csv[target_col] -= 1
     else:
