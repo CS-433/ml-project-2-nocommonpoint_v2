@@ -52,9 +52,6 @@ def train(
     )
     combined = dp.rf_preprocess(combined)
 
-    if return_csv:
-        return combined
-
     if SPLIT_BY_PARTICIPANT:
         x_train, x_test, y_train, y_test = dp.train_test_split_participant(
             combined, 0.15, random_state=SEED, test_take_first=TEST_TAKE_FIRST
@@ -98,6 +95,8 @@ def train(
         else (None, None)
     )
 
+    if return_csv:
+        return train_score, test_score, train_score_sel, test_score_sel, combined
     return train_score, test_score, train_score_sel, test_score_sel
 
     # y_full = np.concatenate((y_train, y_test))
