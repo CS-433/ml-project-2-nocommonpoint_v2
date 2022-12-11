@@ -99,20 +99,6 @@ def train(
         return train_score, test_score, train_score_sel, test_score_sel, combined
     return train_score, test_score, train_score_sel, test_score_sel
 
-    # y_full = np.concatenate((y_train, y_test))
-    # random_acc = 100 * (y_full == np.random.randint(0, 5, size=y_full.shape)).mean()
-    # print(f'Random full accuracy: {random_acc:.2f}%')
-
-    # figs, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-    # print('Train set:')
-    # train_bal, train_mean = metrics.accuracy_info(y_train, model.predict(x_train), prefix='Training', ax=axes[0])
-
-    # print('Test set:')
-    # test_bal, test_mean = metrics.accuracy_info(y_test, model.predict(x_test), prefix='Test', ax=axes[1])
-
-    # return train_bal, test_bal
-
 
 def feature_selection_results(
     model, combined, x_train, y_train, x_test, y_test, verbose=True
