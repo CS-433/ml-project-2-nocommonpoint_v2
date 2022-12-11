@@ -270,7 +270,7 @@ def train_test_split_participant(
 
         print(
             f"After test_take_first={test_take_first}, have {train_pct:.2f}% ({train_count}) "
-            f"vs. {test_pct:.2f} ({test_count}) participants in train/test set"
+            f"vs. {test_pct:.2f}% ({test_count}) participants in train/test set"
         )
     else:
         final_test_csv, final_train_csv = (test_csv, train_csv)
