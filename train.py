@@ -39,6 +39,7 @@ def train(
     demographics = load_demographics(DATADIR / "df_demographics.csv")
     # mobility = load_passive_mobility(DATADIR / 'df_passive_mobility_features.csv')
     # phone = load_passive_phone(DATADIR / 'df_passive_phone_communication_features_brighten_v2.csv')
+    # weather = load_weather(DATADIR / 'df_weather.csv')
 
     combined, merge_result = dp.combine(
         phq9,
