@@ -51,6 +51,8 @@ def train(
         prev_phq9=False,
     )
     combined = dp.rf_preprocess(combined)
+    if return_csv:
+        return combined
 
     if SPLIT_BY_PARTICIPANT:
         x_train, x_test, y_train, y_test = dp.train_test_split_participant(
@@ -95,8 +97,6 @@ def train(
         else (None, None)
     )
 
-    if return_csv:
-        return train_score, test_score, train_score_sel, test_score_sel, combined
     return train_score, test_score, train_score_sel, test_score_sel
 
 
