@@ -229,6 +229,18 @@ def _group_by_phq9(df):
     return groups
 
 
+def _aggregate_along(df):
+    # Assign a different group number to each consecutive phq9 'block'
+    c = 0
+    groups = []
+    # Probably can derive this from some kind of cumsum, but brain is offline atm
+    for k in df.has_phq9:
+        groups.append(c)
+        if k:
+            c += 1
+    return groups
+
+
 def rf_preprocess(df):
     target_columns = [c for c in df.columns if c.startswith("has_")]
     return df.drop(target_columns, axis=1)
