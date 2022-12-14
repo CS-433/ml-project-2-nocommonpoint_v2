@@ -30,6 +30,7 @@ def train(
     feature_selection=False,
     partition=None,
     verbose=True,
+    dailies_names=[],
 ):
 
     phq9 = dp.load_phq9_targets(
@@ -37,17 +38,27 @@ def train(
     )
     locations = load_locations(DATADIR / "df_location_ratio.csv")
     demographics = load_demographics(DATADIR / "df_demographics.csv")
-    # mobility = load_passive_mobility(DATADIR / 'df_passive_mobility_features.csv')
-    # phone = load_passive_phone(DATADIR / 'df_passive_phone_communication_features_brighten_v2.csv')
-    # weather = load_weather(DATADIR / 'df_weather.csv')
 
+    dailies = [("locations", locations)]
+
+    if "mobility" in dailies_names:
+        mobility = load_passive_mobility(DATADIR / "df_passive_mobility_features.csv")
+        dailies.append(("mobility", mobility))
+    if "phone" in dailies_names:
+        phone = load_passive_phone(
+            DATADIR / "df_passive_phone_communication_features_brighten_v2.csv"
+        )
+        dailies.append(("phone", phone))
+
+    # Print the first element for each element of dailies 
+    
+    for name, daily in dailies:
+        print(name)
+
+    print(dailies)
     combined, merge_result = dp.combine(
         phq9,
-        dailies=[
-            ("locations", locations),
-            # ('mobility', mobility),
-            # ('phone', phone)
-        ],
+        dailies=dailies,
         constants=[demographics],
         prev_phq9=False,
     )
