@@ -1,4 +1,3 @@
-from typing_extensions import reveal_type
 import numpy as np
 import matplotlib.pyplot as plt
 
