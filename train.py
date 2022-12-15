@@ -8,10 +8,12 @@ import seaborn as sns
 
 from data_processing import *
 import data_processing as dp
+import metrics
 
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import SelectFromModel
+
 
 DATADIR = Path("data")
 
@@ -49,11 +51,6 @@ def train(
             DATADIR / "df_passive_phone_communication_features_brighten_v2.csv"
         )
         dailies.append(("phone", phone))
-
-    # Print the first element for each element of dailies 
-    
-    for name, daily in dailies:
-        print(name)
 
     print(dailies)
     combined, merge_result = dp.combine(
@@ -113,7 +110,7 @@ def train(
 
 
 def feature_selection_results(
-    model, combined, x_train, y_train, x_test, y_test, verbose=True
+    model, combined, x_train, y_train, x_test, y_test, verbose=True, bal=False
 ):
     feature_importances = model.feature_importances_
 
@@ -145,5 +142,21 @@ def feature_selection_results(
         plt.figure(figsize=(10, 10))
         sns.barplot(x="importance", y="feature", data=feature_importances)
         plt.show()
+
+    if bal:
+        train_bal_sel, train_mean_sel = metrics.accuracy_info(
+            y_train, sfm.estimator.predict(x_train_new), plot=False, verbose=verbose
+        )
+        test_bal_sel, test_mean_sel = metrics.accuracy_info(
+            y_test, sfm.estimator.predict(x_test_new), plot=False, verbose=verbose
+        )
+        return (
+            train_score_sel,
+            test_score_sel,
+            train_bal_sel,
+            train_mean_sel,
+            test_bal_sel,
+            test_mean_sel,
+        )
 
     return train_score_sel, test_score_sel
