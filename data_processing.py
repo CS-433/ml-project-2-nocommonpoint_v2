@@ -98,10 +98,10 @@ def gen_cached_paths(name):
 def make_cached_name(dailies, constants, prev_phq9, daily_reduction):
 
     parts = []
-    parts.append(f'dailiesI{",".join(n for n, _ in dailies)}I')
-    parts.append(f'constantsI{len(constants)}I') # TODO: Oof
-    parts.append(f'prev_phq9I{prev_phq9}I')
-    parts.append(f'reducI{",".join(daily_reduction)}I')
+    parts.append(f'dailies({",".join(n for n, _ in dailies)})')
+    parts.append(f'constants({len(constants)})') # TODO: Oof
+    parts.append(f'prevphq9({prev_phq9})')
+    parts.append(f'reduc({",".join(daily_reduction)})')
 
     return '_'.join(parts)
 
@@ -199,46 +199,47 @@ def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, d
     # use the max for has_* keys so that it is 1 if at least one row is 1
     # the others are features, and we aggregate them with mean and std (daily_reduction)
 
-    def has_filt(col):
-        return col.startswith('has_')
-    
-    def last_filt(col):
-        return col in ('target', 'date', 'prev_target')
+    if dailies:
+        def has_filt(col):
+            return col.startswith('has_')
+        
+        def last_filt(col):
+            return col in ('target', 'date', 'prev_target')
 
-    def feature_filt(col):
-        return col != 'participant_id' and not (has_filt(col) or last_filt(col))
-   
+        def feature_filt(col):
+            return col != 'participant_id' and not (has_filt(col) or last_filt(col))
+       
 
-    cols = daily_merged.columns
-    aggdict = {
-        **{c: 'last' for c in cols if last_filt(c)},
-        **{c: 'max' for c in cols if has_filt(c)},
-        **{c: daily_reduction for c in cols if feature_filt(c)}
-    }
+        cols = daily_merged.columns
+        aggdict = {
+            **{c: 'last' for c in cols if last_filt(c)},
+            **{c: 'max' for c in cols if has_filt(c)},
+            **{c: daily_reduction for c in cols if feature_filt(c)}
+        }
 
-    # now, build a rename dict to quickly rename columns
-    rename_dict = {}
-    for c in cols:
-        c = str(c)
-        if last_filt(c):
-            rename_dict[c, 'last'] = c
-        elif has_filt(c):
-            rename_dict[c, 'max'] = c
-        else:
-            for reduct in daily_reduction:
-                rename_dict[c, reduct] = c + '_' + reduct
+        # now, build a rename dict to quickly rename columns
+        rename_dict = {}
+        for c in cols:
+            c = str(c)
+            if last_filt(c):
+                rename_dict[c, 'last'] = c
+            elif has_filt(c):
+                rename_dict[c, 'max'] = c
+            else:
+                for reduct in daily_reduction:
+                    rename_dict[c, reduct] = c + '_' + reduct
 
-    # finally, the grouping closure
-    def _group_and_reduce_phq9(df):
-        inds = _group_by_phq9(df)
-        aggframe = df.groupby(inds).agg(aggdict)
-        aggframe.columns = [rename_dict[c] for c in aggframe.columns.to_flat_index()]
-        return aggframe
+        # finally, the grouping closure
+        def _group_and_reduce_phq9(df):
+            inds = _group_by_phq9(df)
+            aggframe = df.groupby(inds).agg(aggdict)
+            aggframe.columns = [rename_dict[c] for c in aggframe.columns.to_flat_index()]
+            return aggframe
 
-    from IPython import embed; embed()
-
-    pgrp = daily_merged.groupby('participant_id')
-    daily_rows = pgrp.apply(_group_and_reduce_phq9)
+        pgrp = daily_merged.groupby('participant_id')
+        daily_rows = pgrp.apply(_group_and_reduce_phq9)
+    else:
+        daily_rows = daily_merged # no dailies to merge
 
     # Need to post_process the daily_rows a bit
 
