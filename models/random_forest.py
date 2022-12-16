@@ -6,8 +6,11 @@ from sklearn.ensemble import RandomForestClassifier
 from numpy.typing import NDArray
 
 class SKLearnRandomForest(BrightenModel):
-    def __init__(self, *args, **kwargs):
-        self.model = RandomForestClassifier(*args, **kwargs)
+    def __init__(self, *args, existing_forest=None, **kwargs):
+        if existing_forest is not None:
+            self.model = existing_forest
+        else:
+            self.model = RandomForestClassifier(*args, **kwargs)
 
     @staticmethod
     def preprocess(df: pd.DataFrame) -> pd.DataFrame:

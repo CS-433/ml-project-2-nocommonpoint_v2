@@ -1,6 +1,6 @@
-from typing_extensions import reveal_type
 import numpy as np
 import matplotlib.pyplot as plt
+
 
 def per_class_accuracy(y, y_pred):
     min_label = y.min()
@@ -14,6 +14,7 @@ def per_class_accuracy(y, y_pred):
         recalls.append(rec)
     return np.array(recalls)
 
+
 def per_class_corrects_totals(y, y_pred):
     min_label = y.min()
     max_label = y.max()
@@ -26,7 +27,8 @@ def per_class_corrects_totals(y, y_pred):
         totals.append(total)
     return np.array(corrects), np.array(totals)
 
-def accuracy_info(y, y_pred, plot=True, prefix='', ax=None, verbose=False):
+
+def accuracy_info(y, y_pred, plot=True, prefix="", ax=None, verbose=False):
     y = y.astype(np.int64)
     y_pred = y_pred.astype(np.int64)
     mean_acc = (y == y_pred).mean()
@@ -34,19 +36,19 @@ def accuracy_info(y, y_pred, plot=True, prefix='', ax=None, verbose=False):
     balanced_acc = per_class_acc[np.isfinite(per_class_acc)].mean()
     if plot:
         if ax is None:
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
         ax.bar(np.arange(y.min(), y.max() + 1), per_class_acc)
-        ax.set_title(f'{prefix} Per-Class Recalls')
+        ax.set_title(f"{prefix} Per-Class Recalls")
         ax.set_ylim([0, 1])
         ax.set_yticks(np.arange(0.00, 1.01, 0.05))
         ax.grid()
     if verbose:
-        print(f'Mean accuracy: {100 * mean_acc:.3f}%')
-        print(f'Balanced accuracy: {100 * balanced_acc:.3f}%')
+        print(f"Mean accuracy: {100 * mean_acc:.3f}%")
+        print(f"Balanced accuracy: {100 * balanced_acc:.3f}%")
     return balanced_acc, mean_acc
+
 
 def correct_count_info(y, y_pred):
     y = y.astype(np.int64)
     y_pred = y_pred.astype(np.int64)
     return per_class_corrects_totals(y, y_pred)
-
