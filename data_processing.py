@@ -235,6 +235,8 @@ def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, d
         aggframe.columns = [rename_dict[c] for c in aggframe.columns.to_flat_index()]
         return aggframe
 
+    from IPython import embed; embed()
+
     pgrp = daily_merged.groupby('participant_id')
     daily_rows = pgrp.apply(_group_and_reduce_phq9)
 
@@ -288,7 +290,8 @@ def _aggregate_along(df):
         if k:
             c += 1
     return groups
-
+        
+# These are the same as SKLearnRandomForest's, but are kept for backward compatibility
 def rf_preprocess(df):
     target_columns = [c for c in df.columns if c.startswith('has_')]
     return df.drop(target_columns, axis=1)
@@ -297,10 +300,13 @@ def xy_split(csv):
     y = csv['target'].to_numpy()
     x = csv.drop(csv.columns.intersection(['target', 'participant_id', 'date']), axis=1).to_numpy()
     return x, y
+#
 
-def train_test_split_participant(csv, test_size=0.1, test_take_first=0, random_state=None):
+def train_test_split_participant(csv, test_size=0.1, test_take_first=0, random_state=None, 
+                                 split_fn=xy_split):
     participants = csv.participant_id.unique()
-    np.random.seed(random_state)
+    if random_state is not None:
+        np.random.seed(random_state)
     np.random.shuffle(participants)
     cutoff = int(np.ceil(participants.size * test_size))
     
@@ -327,8 +333,8 @@ def train_test_split_participant(csv, test_size=0.1, test_take_first=0, random_s
     else:
         final_test_csv, final_train_csv = (test_csv, train_csv)
 
-    x_train, y_train = xy_split(final_train_csv)
-    x_test, y_test = xy_split(final_test_csv)
+    x_train, y_train = split_fn(final_train_csv)
+    x_test, y_test = split_fn(final_test_csv)
 
     return x_train, x_test, y_train, y_test
 
@@ -337,4 +343,3 @@ def train_test_split_participant(csv, test_size=0.1, test_take_first=0, random_s
 #     # now, we just combine everything between has_phq9 rows, somehow
 #     reduced = []
 #     for row in rows:
-        

@@ -4,7 +4,10 @@ import pandas as pd
 import sklearn.model_selection as msel
 from collections import Counter
 
-from models import *
+import data_processing as dp
+import models
+
+DEFAULT_SPLIT_FN = models.SKLearnRandomForest.xy_split
 
 def _make_group_indices(df):
     inds = df.groupby('participant_id').indices
@@ -23,14 +26,8 @@ def _make_group_indices(df):
 def _from_inds(x, y, train_i, test_i):
     try:
         return x[train_i], x[test_i], y[train_i], y[test_i]
-    except IndexError:
+    except IndexError: # can happen if test set becomes empty in LeaveOneGroupOut CV
         return None, None, None, None
-
-def per_row_cv(df, n_splits=5, split_fn=SKLearnRandomForest.xy_split):
-    f = msel.StratifiedKFold(n_splits=n_splits)
-    x, y = split_fn(df)
-    for train_i, test_i in f.split(x, y):
-        yield _from_inds(x, y, train_i, test_i)
 
 def _test_take_first(df, train_i, test_i, k):
     if k == 0:
@@ -46,7 +43,25 @@ def _test_take_first(df, train_i, test_i, k):
             to_keep.append(i)
     return np.concatenate((train_i, np.array(to_steal))), np.array(to_keep)
 
-def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=SKLearnRandomForest.xy_split):
+### Single-split iterators
+
+def per_row_once(df, test_size=0.15, split_fn=DEFAULT_SPLIT_FN):
+    x, y = split_fn(df)
+    yield msel.train_test_split(x, y, test_size=test_size, stratify=y)
+
+def per_patient_once(df, test_size=0.15, test_take_first=0, split_fn=DEFAULT_SPLIT_FN):
+    yield dp.train_test_split_participant(df, test_size, test_take_first, 
+                                          random_state=None, split_fn=split_fn)
+
+### Cross validation split iterators
+
+def per_row_cv(df, n_splits=5, split_fn=DEFAULT_SPLIT_FN):
+    f = msel.StratifiedKFold(n_splits=n_splits)
+    x, y = split_fn(df)
+    for train_i, test_i in f.split(x, y):
+        yield _from_inds(x, y, train_i, test_i)
+
+def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=DEFAULT_SPLIT_FN):
     """ 
     Call this to create an x_train, x_test, y_train, y_test iterator with patient splitting.
     n_splits = None implies LeaveOneGroupOut, which is bad
@@ -63,10 +78,3 @@ def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=SKLearnRandomFore
     for train_i, test_i in f.split(x, y, groups=groups):
         train_i, test_i = _test_take_first(df, train_i, test_i, test_take_first)
         yield _from_inds(x, y, train_i, test_i)
-
-class Namespace:
-    pass
-
-def aggregate_dict(d):
-    return {k: v.mean() for k, v in d.items()}
-

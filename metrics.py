@@ -26,7 +26,7 @@ def per_class_corrects_totals(y, y_pred):
         totals.append(total)
     return np.array(corrects), np.array(totals)
 
-def accuracy_info(y, y_pred, plot=True, prefix='', ax=None):
+def accuracy_info(y, y_pred, plot=True, prefix='', ax=None, verbose=False):
     y = y.astype(np.int64)
     y_pred = y_pred.astype(np.int64)
     mean_acc = (y == y_pred).mean()
@@ -40,8 +40,9 @@ def accuracy_info(y, y_pred, plot=True, prefix='', ax=None):
         ax.set_ylim([0, 1])
         ax.set_yticks(np.arange(0.00, 1.01, 0.05))
         ax.grid()
-    print(f'Mean accuracy: {100 * mean_acc:.3f}%')
-    print(f'Balanced accuracy: {100 * balanced_acc:.3f}%')
+    if verbose:
+        print(f'Mean accuracy: {100 * mean_acc:.3f}%')
+        print(f'Balanced accuracy: {100 * balanced_acc:.3f}%')
     return balanced_acc, mean_acc
 
 def correct_count_info(y, y_pred):
