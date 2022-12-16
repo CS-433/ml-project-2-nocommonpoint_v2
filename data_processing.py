@@ -1,7 +1,11 @@
+import os
+import pickle
+import hashlib
 from collections import defaultdict
 
 import pandas as pd
 import numpy as np
+
 
 # regression|classification & value|diff
 def load_phq9_targets(phq9_path, type='regression', target='value', derived_sum=True):
@@ -61,6 +65,47 @@ def load_passive_phone(pf_path):
 
     return csv.drop(['week'], axis=1)
 
+
+
+
+
+def file_md5(path):
+    """Calculate and return the MD5 sum of a file in a memory-inefficient way."""
+    with open(path, "rb") as fp:
+        return hashlib.md5(fp.read()).hexdigest()
+
+def read_file(path):
+    with open(path, "r") as fp:
+        return fp.read().strip()
+
+def write_file(path, string):
+    with open(path, "w") as fp:
+        fp.write(string)
+
+def read_pickle(path):
+    with open(path, 'rb') as fp:
+        return pickle.load(fp)
+
+def write_pickle(path, obj):
+    with open(path, 'wb') as fp:
+        pickle.dump(obj, fp)
+
+def gen_cached_paths(name):
+    """Come up with a name for the cached version of the given CSV file."""
+    names = (f"{name}_combined.pkl", f"{name}_merged.pkl", f"{name}_md5.txt")
+    return [os.path.join("cache", f) for f in names]
+
+def make_cached_name(dailies, constants, prev_phq9, daily_reduction):
+
+    parts = []
+    parts.append(f'dailiesI{",".join(n for n, _ in dailies)}I')
+    parts.append(f'constantsI{len(constants)}I') # TODO: Oof
+    parts.append(f'prev_phq9I{prev_phq9}I')
+    parts.append(f'reducI{",".join(daily_reduction)}I')
+
+    return '_'.join(parts)
+
+
 def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, daily_reduction=['mean', 'std']):
     """
     dailies: (name, csv) sequence, csv's are expected to have participant_id and date
@@ -88,6 +133,34 @@ def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, d
 
     if constants is None:
         constants = []
+
+    # Loading up the cached version of the data, if it exists.
+    md5 = None
+    try:
+        cached_name = make_cached_name(dailies, constants, prev_phq9, daily_reduction)
+    except TypeError as e:
+        cached_name = None
+        print('Failed to create cached name, caching aborted.')
+        print(e)
+    cached_name = make_cached_name(dailies, constants, prev_phq9, daily_reduction)
+    print('Cached name:', cached_name)
+    # Check for cached version by name, load it if it exists.
+    if cached_name is not None:
+        os.makedirs('cache', exist_ok=True)
+        cpath, mpath, hashpath = gen_cached_paths(cached_name)
+        if os.path.exists(cpath):
+            original_md5 = read_file(hashpath)
+            # Check if the MD5 is the same as the MD5 of the provided file.
+            md5 = file_md5(cpath)
+            if original_md5 == md5:
+                print(
+                    f"Found matching cached data at '{cpath}', loading from cache."
+                )
+                return read_pickle(cpath), read_pickle(mpath)
+            else:
+                print(
+                    f"Cache exists at '{cpath}' but does not match, will be overwritten."
+                )
 
     # Remember that PHQ9 is also daily.
     # Dailies should be (name, csv) pairs.
@@ -146,6 +219,7 @@ def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, d
     # now, build a rename dict to quickly rename columns
     rename_dict = {}
     for c in cols:
+        c = str(c)
         if last_filt(c):
             rename_dict[c, 'last'] = c
         elif has_filt(c):
@@ -184,6 +258,12 @@ def combine(phq9: pd.DataFrame, dailies=None, constants=None, prev_phq9=False, d
 #         p = phq9.groupby('participant_id').apply(
 #             lambda x: pd.concat(
 #                 (x, x.rename({'target': 'prev_target'}, axis=1)['prev_target'].shift(1)), axis=1))
+
+    if cached_name is not None:
+        print('Caching generated data...')
+        write_pickle(cpath, daily_rows)
+        write_pickle(mpath, daily_merged)
+        write_file(hashpath, file_md5(cpath))
 
     return daily_rows, daily_merged
 

@@ -4,6 +4,8 @@ import pandas as pd
 import sklearn.model_selection as msel
 from collections import Counter
 
+from models import *
+
 def _make_group_indices(df):
     inds = df.groupby('participant_id').indices
     arrs = []
@@ -13,10 +15,10 @@ def _make_group_indices(df):
         i += 1
     return np.concatenate(arrs)
 
-def _xy_split(csv):
-    y = csv['target'].to_numpy()
-    x = csv.drop(csv.columns.intersection(['target', 'participant_id', 'date']), axis=1).to_numpy()
-    return x, y
+# def _xy_split(csv):
+#     y = csv['target'].to_numpy()
+#     x = csv.drop(csv.columns.intersection(['target', 'participant_id', 'date']), axis=1).to_numpy()
+#     return x, y
 
 def _from_inds(x, y, train_i, test_i):
     try:
@@ -24,9 +26,9 @@ def _from_inds(x, y, train_i, test_i):
     except IndexError:
         return None, None, None, None
 
-def per_row_cv(df, n_splits=5):
+def per_row_cv(df, n_splits=5, split_fn=SKLearnRandomForest.xy_split):
     f = msel.StratifiedKFold(n_splits=n_splits)
-    x, y = _xy_split(df)
+    x, y = split_fn(df)
     for train_i, test_i in f.split(x, y):
         yield _from_inds(x, y, train_i, test_i)
 
@@ -44,7 +46,7 @@ def _test_take_first(df, train_i, test_i, k):
             to_keep.append(i)
     return np.concatenate((train_i, np.array(to_steal))), np.array(to_keep)
 
-def per_patient_cv(df, n_splits=5, test_take_first=0):
+def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=SKLearnRandomForest.xy_split):
     """ 
     Call this to create an x_train, x_test, y_train, y_test iterator with patient splitting.
     n_splits = None implies LeaveOneGroupOut, which is bad
@@ -55,7 +57,7 @@ def per_patient_cv(df, n_splits=5, test_take_first=0):
         f = msel.LeaveOneGroupOut()
     else:
         f = msel.StratifiedGroupKFold(n_splits=n_splits, shuffle=False)
-    x, y = _xy_split(df)
+    x, y = split_fn(df)
     if n_splits is None:
         print(f'# LeaveOneOut Splits: {f.get_n_splits(x, y, groups)}')
     for train_i, test_i in f.split(x, y, groups=groups):
