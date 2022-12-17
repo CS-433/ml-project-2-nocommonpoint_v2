@@ -19,7 +19,6 @@ def _make_group_indices(df):
         i += 1
     return np.concatenate(arrs)
 
-
 def _xy_split(csv):
     y = csv["target"].to_numpy()
     x = csv.drop(
@@ -33,7 +32,6 @@ def _from_inds(x, y, train_i, test_i):
         return x[train_i], x[test_i], y[train_i], y[test_i]
     except IndexError:  # can happen if test set becomes empty in LeaveOneGroupOut CV
         return None, None, None, None
-
 
 def _test_take_first(df, train_i, test_i, k):
     if k == 0:
@@ -88,10 +86,12 @@ def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=DEFAULT_SPLIT_FN)
     x, y = split_fn(df)
     if n_splits is None:
         print(f"# LeaveOneOut Splits: {f.get_n_splits(x, y, groups)}")
+    x, y = _xy_split(df)
+    if n_splits is None:
+        print(f'# LeaveOneOut Splits: {f.get_n_splits(x, y, groups)}')
     for train_i, test_i in f.split(x, y, groups=groups):
         train_i, test_i = _test_take_first(df, train_i, test_i, test_take_first)
         yield _from_inds(x, y, train_i, test_i)
-
 
 class Namespace:
     pass
