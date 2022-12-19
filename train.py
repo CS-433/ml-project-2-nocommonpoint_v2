@@ -75,6 +75,7 @@ def train_cv(
     plot: bool = False,
     dailies_names: Optional[Sequence[str]] = ("locations",),
     test_size: Union[float, int] = 0.15,
+    aggregate: bool = False,
 ):
     """
     Run an experiment optionally using cross-validation given model and data properties.
@@ -132,6 +133,9 @@ def train_cv(
     test_size : Union[float, int]
         Passed to sklearn.model_selection.train_test_split when not using cross-validation,
         i.e. N_SPLIT == 1
+    aggregate: bool
+        If specified, directly return the statistics of the metrics with *_mean and *_std keys,
+        instead of an array containing the result for each split.
 
     Returns
     ------
@@ -172,6 +176,8 @@ def train_cv(
             {"n_estimators": 300, "n_jobs": -1, "random_state": SEED},
         ),
         "rnn": (models.LitRNNModel, {"hidden_size": 128, "num_layers": 2}),
+        "mlp": (models.LitMLPModel, {"hidden_size": 128}),
+        "xgboost": (models.XGBClassifier, {"n_estimators": 100, "reg_lambda": 1e-2}),
     }
 
     model_class, model_kwargs = model_type2cls[MODEL_TYPE]
@@ -318,9 +324,14 @@ def train_cv(
         elif TYPE == "classification":
             return metric_dict["train_bal"][0], metric_dict["test_bal"][0]
     else:
-        return {
-            k: np.array(v) for k, v in metric_dict.items()
-        }  # convert lists to arrays
+        array_dict = { k: np.array(v) for k, v in metric_dict.items() }  # convert lists to arrays
+        if not aggregate:
+            return array_dict
+        agg_dict = {}
+        for k, v in array_dict.items():
+            agg_dict[k + '_mean'] = v.mean()
+            agg_dict[k + '_std'] = v.std()
+        return agg_dict
 
 
 def feature_selection_results(

@@ -1,5 +1,6 @@
 from .protocol import BrightenModel
 
+
 import os
 import random
 import logging
@@ -32,66 +33,54 @@ import torchmetrics
 
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
-
-class LitRNNModel(BrightenModel):
+class LitMLPModel(BrightenModel):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
-        self.crnn = None
-
-    @staticmethod
-    def preprocess(df: pd.DataFrame) -> pd.DataFrame:
-        # same... forget about standardizing here, the ranges should be fine
-        target_columns = [c for c in df.columns if str(c).startswith('has_')]
-        return df.drop(target_columns, axis=1)
-       
-    @staticmethod
-    def xy_split(df: pd.DataFrame) -> tuple[NDArray, NDArray]:
-        y = df['target'].to_numpy()
-        drop_cols = ['target', 'date'] # don't drop participant id for sequencing later!
-        x = df.drop(df.columns.intersection(drop_cols), axis=1).to_numpy()
-        return x, y
+        self.mlp = None
 
     def fit(self, x, y):
         # here we go... get some data _from_ the data!
         num_classes = int(y.max() + 1)
-        input_dim = x.shape[1] - 1 # except participant id
+        input_dim = x.shape[1] # except participant id
         print(f'Determined num_classes={num_classes} input_dim={input_dim}')
 
         # now, make it into a proper dataset
         # batch_size=1 since sequence lengths are varying
-        dataset = RNNDataset(x, y)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+        dataset = MLPDataset(x, y)
+        loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True, drop_last=True)
 
         # create a model
-        self.crnn = ClassifierRNN(num_classes, input_dim, **self.kwargs)
+        self.mlp = ClassifierMLP(num_classes, input_dim, **self.kwargs)
 
         # let the lightning strike!
-        lit = LitCRNN(self.crnn, num_classes)
-        trainer = pl.Trainer(max_epochs=20)
+        lit = LitMLP(self.mlp, num_classes)
+        trainer = pl.Trainer(max_epochs=250)
         trainer.fit(model=lit, train_dataloaders=loader)
 
     def predict(self, x):
-        if self.crnn is None:
+        if self.mlp is None:
             raise RuntimeError('Cannot .predict(x) before .fit(x, y)!')
+# 
+#         dataset = MLPDataset(x)
+#         loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 
-        dataset = RNNDataset(x)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
-
-        self.crnn.eval()
+        self.mlp.eval()
         with torch.no_grad():
-            outputs = [self.crnn(x).numpy()[0] for x in loader] # remove the batch axis
-        probas = np.concatenate(outputs, axis=0)
-        return np.argmax(probas, axis=1)
+            scores = self.mlp(torch.tensor(x).float()).numpy()
+            print('Scores shape:', scores.shape)
+#             outputs = [self.mlp(x).numpy()[0] for x in loader] # remove the batch axis
+        return np.argmax(scores, axis=1)
 
-class RNNDataset(torch.utils.data.Dataset):
+class MLPDataset(torch.utils.data.Dataset):
     """ 
     Provide the out from RNNModel.xy_split; the first column of the array should be participants. 
     The dataset will output each patient as an independent sequence for training.
     """
     def __init__(self, x, y=None):
         # made very awkward by the will to keep the same interface as random forest
+        self.x = torch.tensor(x).float()
+        self.y = None if y is None else torch.tensor(y).long()
         xdf = pd.DataFrame(x)
-        print(xdf.shape)
         self.participant_tensors = []
         scaler = preprocessing.StandardScaler()
         scaler.fit(xdf.drop(0, axis=1).to_numpy())
@@ -110,10 +99,12 @@ class RNNDataset(torch.utils.data.Dataset):
                 self.participant_tensors.append((x_tensor, y_tensor))
 
     def __getitem__(self, i):
-        return self.participant_tensors[i]
+        if self.y is None:
+            return self.x[i]
+        return self.x[i], self.y[i]
 
     def __len__(self):
-        return len(self.participant_tensors)
+        return len(self.x)
 
 
 class DummyDataset(torch.utils.data.Dataset):
@@ -131,26 +122,34 @@ class DummyDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.n
 
-class ClassifierRNN(nn.Module):
-    def __init__(self, num_classes, input_size, hidden_size=128, num_layers=1, 
-                 bias=True, batch_first=True):
+class ClassifierMLP(nn.Module):
+    def __init__(self, num_classes, input_size, hidden_size=128, num_layers=3):
         super().__init__()
-        self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
-                          bias=bias, batch_first=batch_first)
-        self.fc = nn.Linear(hidden_size, num_classes)
+        lst = [
+            nn.Linear(input_size, hidden_size, bias=False),
+            nn.BatchNorm1d(hidden_size),
+            nn.ReLU(),
+        ]
+        for _ in range(num_layers - 1):
+            lst.extend([
+                nn.Linear(hidden_size, hidden_size, bias=False),
+                nn.BatchNorm1d(hidden_size),
+                nn.ReLU(),
+            ])
+        self.net = nn.Sequential(
+            *lst,
+            nn.Linear(hidden_size, num_classes)
+        )
 
     def forward(self, x):
-        y, _ = self.gru(x) # let h = 0
-        c = self.fc(F.relu(y))
-        return c
+        return self.net(x)
         
         
-
 # define the LightningModule
-class LitCRNN(pl.LightningModule):
-    def __init__(self, crnn, n_classes):
+class LitMLP(pl.LightningModule):
+    def __init__(self, mlp, n_classes):
         super().__init__()
-        self.crnn = crnn
+        self.mlp = mlp
         self.acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
 #         self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
 
@@ -158,9 +157,7 @@ class LitCRNN(pl.LightningModule):
         # training_step defines the train loop.
         # it is independent of forward
         x, y = batch
-        y_hat = self.crnn(x)
-        y = y[0]
-        y_hat = y_hat[0]
+        y_hat = self.mlp(x)
         loss = F.cross_entropy(y_hat, y)
         self.acc(y_hat, y)
         # Logging to TensorBoard by default
@@ -180,20 +177,11 @@ class LitCRNN(pl.LightningModule):
 #         self.val_acc.reset()
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=1e-2)
         # optimizer = optim.SGD(self.parameters(), lr=1e-1)
         return optimizer
 
 
 # init the autoencoder
 if __name__ == '__main__':
-    N_CLASSES = 5
-    h = 16
-    dataset = DummyDataset(n_classes=N_CLASSES, h=h)
-    val_dataset = DummyDataset(h=h, n=100, n_classes=N_CLASSES)
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False)
-    module = LitCRNN(ClassifierRNN(N_CLASSES, input_size=h, hidden_size=32), N_CLASSES)
-    trainer = pl.Trainer(limit_train_batches=1000, max_epochs=10)
-    trainer.fit(model=module, train_dataloaders=train_loader, val_dataloaders=val_loader)
-
+    pass
