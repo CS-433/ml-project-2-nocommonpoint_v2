@@ -349,6 +349,7 @@ def xy_split(csv):
     ).to_numpy()
     return x, y
 
+
 def train_test_split_participant(
     csv, test_size=0.1, test_take_first=0, random_state=None, split_fn=xy_split
 ):
@@ -387,10 +388,6 @@ def train_test_split_participant(
     x_test, y_test = split_fn(final_test_csv)
 
     return x_train, x_test, y_train, y_test
-
-
-
-
 
 
 ##### For compatibility with S's experiments
@@ -490,6 +487,7 @@ def load_phq2_targets(phq2_path, type="regression", target="value", phq2_index=0
     if target_diff:
         csv.dropna(axis=0, inplace=True)  # remove NaN rows, useful for target_diff
     return csv
+
 
 def combine_additively(
     phq9: pd.DataFrame,
@@ -897,7 +895,30 @@ def combined_additively(
                     )
 
                 case "std":
-                    pass
+                    df_cumcal = (
+                        daily_merged.groupby(["participant_id"])[COUNT_COLUMNS]
+                        .expanding()
+                        .std()
+                        .add_suffix("_std")
+                        .reset_index()
+                        .fillna(0)
+                        .drop(columns=["level_1", "participant_id"])
+                    )
+                    df_cummax = (
+                        daily_merged.set_index(COLUMNS_INDEX)
+                        .groupby(level=0)
+                        .cummax()
+                        .reset_index()[COLUMNS_HAS]
+                    )
+                    df_cum = pd.concat(
+                        [daily_merged[COLUMNS_INDEX], df_cummax, df_cumcal], axis=1
+                    )
+                    df = df.merge(
+                        df_cum,
+                        left_on=COLUMNS_INDEX,
+                        right_on=COLUMNS_INDEX,
+                        how="left",
+                    )
 
                 case "max":
                     df_cumcal = (
@@ -946,6 +967,33 @@ def combined_additively(
                         right_on=COLUMNS_INDEX,
                         how="left",
                     )
+
+                case "median":
+                    df_cumcal = (
+                        daily_merged.groupby(["participant_id"])[COUNT_COLUMNS]
+                        .expanding()
+                        .median()
+                        .add_suffix("_median")
+                        .reset_index()
+                        .fillna(0)
+                        .drop(columns=["level_1", "participant_id"])
+                    )
+                    df_cummax = (
+                        daily_merged.set_index(COLUMNS_INDEX)
+                        .groupby(level=0)
+                        .cummax()
+                        .reset_index()[COLUMNS_HAS]
+                    )
+                    df_cum = pd.concat(
+                        [daily_merged[COLUMNS_INDEX], df_cummax, df_cumcal], axis=1
+                    )
+                    df = df.merge(
+                        df_cum,
+                        left_on=COLUMNS_INDEX,
+                        right_on=COLUMNS_INDEX,
+                        how="left",
+                    )
+
                 case _:
                     KeyError("reduction method not found")
         return df
