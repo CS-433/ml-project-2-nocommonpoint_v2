@@ -114,10 +114,15 @@ def gen_cached_paths(name):
     names = (f"{name}_combined.pkl", f"{name}_merged.pkl", f"{name}_md5.txt")
     return [os.path.join("cache", f) for f in names]
 
+def hash_array_hex(arr):
+    h = hashlib.blake2b(digest_size=8)
+    h.update(arr.tobytes())
+    return h.hexdigest()
 
-def make_cached_name(dailies, constants, prev_phq9, daily_reduction):
+def make_cached_name(phq9, dailies, constants, prev_phq9, daily_reduction):
 
     parts = []
+    parts.append(f'thash({hash_array_hex(phq9.target.to_numpy())})')
     parts.append(f'dailies({",".join(n for n, _ in dailies)})')
     parts.append(f"constants({len(constants)})")  # TODO: Oof
     parts.append(f"prevphq9({prev_phq9})")
@@ -168,12 +173,11 @@ def combine(
     # Loading up the cached version of the data, if it exists.
     md5 = None
     try:
-        cached_name = make_cached_name(dailies, constants, prev_phq9, daily_reduction)
+        cached_name = make_cached_name(phq9, dailies, constants, prev_phq9, daily_reduction)
     except TypeError as e:
         cached_name = None
         vprint("Failed to create cached name, caching aborted.")
         vprint(e)
-    cached_name = make_cached_name(dailies, constants, prev_phq9, daily_reduction)
     vprint("Cached name:", cached_name)
     # Check for cached version by name, load it if it exists.
     if cached_name is not None:
