@@ -76,6 +76,8 @@ def train_cv(
     dailies_names: Optional[Sequence[str]] = ("locations",),
     test_size: Union[float, int] = 0.15,
     aggregate: bool = False,
+    model_kwargs: Optional[dict] = None,
+    use_demographics: bool = True,
 ):
     """
     Run an experiment optionally using cross-validation given model and data properties.
@@ -136,6 +138,11 @@ def train_cv(
     aggregate: bool
         If specified, directly return the statistics of the metrics with *_mean and *_std keys,
         instead of an array containing the result for each split.
+    model_kwargs: Optional[dict]
+        If specified, arguments to be passed to the model constructor. Otherwise, some default
+        arguments will be used.
+    use_demographics: bool
+        If specified as False, demographics information will be removed from the data.
 
     Returns
     ------
@@ -165,10 +172,12 @@ def train_cv(
     combined, _ = dp.combine(  # this also caches the loaded csv with unique name
         phq9,
         dailies=dailies,
-        constants=[demographics],
+        constants=[demographics] if use_demographics else [],
         prev_phq9=False,
         verbose=verbose,
     )
+
+    combined = combined.reset_index()
 
     model_type2cls = {
         "random-forest": (
@@ -178,9 +187,13 @@ def train_cv(
         "rnn": (models.LitRNNModel, {"hidden_size": 128, "num_layers": 2}),
         "mlp": (models.LitMLPModel, {"hidden_size": 128}),
         "xgboost": (models.XGBClassifier, {"n_estimators": 100, "reg_lambda": 1e-2}),
+        "mostfreq": (models.MostFrequentPredictor, {}),
     }
 
-    model_class, model_kwargs = model_type2cls[MODEL_TYPE]
+    model_class, default_kwargs = model_type2cls[MODEL_TYPE]
+    
+    if model_kwargs is None:
+        model_kwargs = default_kwargs
 
     combined = model_class.preprocess(combined)
 
@@ -250,7 +263,7 @@ def train_cv(
         elif TYPE == "classification":
 
             model = model_class(**model_kwargs)
-            model.fit(x_train, y_train)
+            model.fit(x_train, y_train, x_test, y_test)
 
             # train_acc = 100 * model.score(x_train, y_train)
             # test_acc = 100 * model.score(x_test, y_test)

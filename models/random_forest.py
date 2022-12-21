@@ -1,5 +1,7 @@
 from .protocol import BrightenModel
 
+from typing import Optional
+
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
@@ -12,7 +14,8 @@ class SKLearnRandomForest(BrightenModel):
         else:
             self.model = RandomForestClassifier(*args, **kwargs)
 
-    def fit(self, x: NDArray, y: NDArray):
+    def fit(self, x: NDArray, y: NDArray, 
+            xval: Optional[NDArray] = None, yval: Optional[NDArray] = None):
         self.model.fit(x, y)
 
     def predict(self, x: NDArray) -> NDArray:

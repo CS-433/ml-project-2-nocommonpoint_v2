@@ -37,8 +37,9 @@ class LitMLPModel(BrightenModel):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.mlp = None
+        self.lit = None
 
-    def fit(self, x, y):
+    def fit(self, x, y, xval=None, yval=None):
         # here we go... get some data _from_ the data!
         num_classes = int(y.max() + 1)
         input_dim = x.shape[1] # except participant id
@@ -53,9 +54,16 @@ class LitMLPModel(BrightenModel):
         self.mlp = ClassifierMLP(num_classes, input_dim, **self.kwargs)
 
         # let the lightning strike!
-        lit = LitMLP(self.mlp, num_classes)
-        trainer = pl.Trainer(max_epochs=250)
-        trainer.fit(model=lit, train_dataloaders=loader)
+        self.lit = lit = LitMLP(self.mlp, num_classes)
+        trainer = pl.Trainer(max_epochs=300, auto_lr_find=True)
+        trainer.tune(model=lit, train_dataloaders=loader)
+        print(f'Auto-tuned learning rate set to {lit.lr}')
+        if xval is None:
+            trainer.fit(model=lit, train_dataloaders=loader)
+        else:
+            val_dataset = MLPDataset(xval, yval)
+            val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1)
+            trainer.fit(model=lit, train_dataloaders=loader, val_dataloaders=val_loader)
 
     def predict(self, x):
         if self.mlp is None:
@@ -80,6 +88,7 @@ class MLPDataset(torch.utils.data.Dataset):
         # made very awkward by the will to keep the same interface as random forest
         self.x = torch.tensor(x).float()
         self.y = None if y is None else torch.tensor(y).long()
+        return
         xdf = pd.DataFrame(x)
         self.participant_tensors = []
         scaler = preprocessing.StandardScaler()
@@ -151,7 +160,8 @@ class LitMLP(pl.LightningModule):
         super().__init__()
         self.mlp = mlp
         self.acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
-#         self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
+        self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
+        self.lr = 1e-4
 
     def training_step(self, batch, _): # batch_idx is the second arg
         # training_step defines the train loop.
@@ -165,19 +175,17 @@ class LitMLP(pl.LightningModule):
         self.log('accuracy', self.acc)
         return loss
 
-#     def validation_step(self, batch, batch_idx):
-#         x, y = batch
-#         y_hat = self.crnn(x)
-#         y = y[0]
-#         y_hat = y_hat[0]
-#         self.val_acc(y_hat, y)
+    def validation_step(self, batch, _):
+        x, y = batch
+        y_hat = self.mlp(x)
+        self.val_acc(y_hat, y)
 # 
-#     def validation_epoch_end(self, validation_step_outputs):
-#         self.log('val-accuracy', self.val_acc.compute())
-#         self.val_acc.reset()
+    def validation_epoch_end(self, validation_step_outputs):
+        self.log('val-accuracy', self.val_acc.compute())
+        self.val_acc.reset()
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-2)
+        optimizer = optim.Adam(self.parameters(), lr=self.lr)
         # optimizer = optim.SGD(self.parameters(), lr=1e-1)
         return optimizer
 
