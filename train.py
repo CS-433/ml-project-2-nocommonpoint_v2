@@ -20,6 +20,189 @@ DATADIR = Path("data")
 
 #########################################################
 
+partitions_dict = {
+    "P0": {
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+        6: 1,
+        7: 1,
+        8: 1,
+        9: 1,
+        10: 1,
+        11: 2,
+        12: 2,
+        13: 2,
+        14: 2,
+        15: 2,
+        16: 3,
+        17: 3,
+        18: 3,
+        19: 3,
+        20: 3,
+        21: 4,
+        22: 4,
+        23: 4,
+        24: 4,
+        25: 4,
+        26: 4,
+        27: 4,
+    },
+    "P1": {
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 1,
+        6: 1,
+        7: 1,
+        8: 1,
+        9: 1,
+        10: 1,
+        11: 1,
+        12: 1,
+        13: 1,
+        14: 1,
+        15: 2,
+        16: 2,
+        17: 2,
+        18: 2,
+        19: 2,
+        20: 2,
+        21: 2,
+        22: 2,
+        23: 2,
+        24: 2,
+        25: 2,
+        26: 2,
+        27: 2,
+    },
+    "P2": {
+        0: 0,
+        1: 1,
+        2: 1,
+        3: 1,
+        4: 1,
+        5: 1,
+        6: 1,
+        7: 1,
+        8: 1,
+        9: 1,
+        10: 2,
+        11: 2,
+        12: 2,
+        13: 2,
+        14: 2,
+        15: 2,
+        16: 2,
+        17: 2,
+        18: 2,
+        19: 2,
+        20: 3,
+        21: 3,
+        22: 3,
+        23: 3,
+        24: 3,
+        25: 3,
+        26: 3,
+        27: 3,
+    },
+    "P3": {
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 1,
+        6: 1,
+        7: 1,
+        8: 1,
+        9: 1,
+        10: 2,
+        11: 2,
+        12: 2,
+        13: 2,
+        14: 2,
+        15: 3,
+        16: 3,
+        17: 3,
+        18: 3,
+        19: 3,
+        20: 3,
+        21: 3,
+        22: 3,
+        23: 3,
+        24: 3,
+        25: 3,
+        26: 3,
+        27: 3,
+    },
+    "P4": {
+        0: 0,
+        1: 1,
+        2: 1,
+        3: 1,
+        4: 1,
+        5: 2,
+        6: 2,
+        7: 2,
+        8: 2,
+        9: 2,
+        10: 3,
+        11: 3,
+        12: 3,
+        13: 3,
+        14: 3,
+        15: 4,
+        16: 4,
+        17: 4,
+        18: 4,
+        19: 4,
+        20: 5,
+        21: 5,
+        22: 5,
+        23: 5,
+        24: 5,
+        25: 5,
+        26: 5,
+        27: 5,
+    },
+    "P5": {
+        0: 0,
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 1,
+        6: 1,
+        7: 1,
+        8: 1,
+        9: 1,
+        10: 2,
+        11: 2,
+        12: 2,
+        13: 2,
+        14: 2,
+        15: 3,
+        16: 3,
+        17: 3,
+        18: 3,
+        19: 3,
+        20: 4,
+        21: 4,
+        22: 4,
+        23: 4,
+        24: 4,
+        25: 4,
+        26: 4,
+        27: 4,
+    },
+}
+
 
 def rmse(x, y):
     return np.sqrt(((x - y) ** 2).mean())
@@ -42,7 +225,9 @@ def load_dailies(*dailies_names, dir=DATADIR):
         load_passive_phone,
         "df_passive_phone_communication_features_brighten_v2.csv",
     )
-    # TODO: Maybe add weather data too
+    add_if(
+        "weather", load_passive_weather, "df_passive_weather_features_brighten_v2.csv"
+    )
 
     return dailies
 
@@ -76,6 +261,7 @@ def train_cv(
     dailies_names: Optional[Sequence[str]] = ("locations",),
     test_size: Union[float, int] = 0.15,
     aggregate: bool = False,
+    dir: Path = DATADIR,
 ):
     """
     Run an experiment optionally using cross-validation given model and data properties.
@@ -155,7 +341,6 @@ def train_cv(
         dailies_names = []
 
     # loading and merging the data
-    dir = DATADIR
     phq9 = dp.load_phq9_targets(
         dir / "df_phq9.csv", type=TYPE, target=TARGET, partition=partition
     )
@@ -324,13 +509,15 @@ def train_cv(
         elif TYPE == "classification":
             return metric_dict["train_bal"][0], metric_dict["test_bal"][0]
     else:
-        array_dict = { k: np.array(v) for k, v in metric_dict.items() }  # convert lists to arrays
+        array_dict = {
+            k: np.array(v) for k, v in metric_dict.items()
+        }  # convert lists to arrays
         if not aggregate:
             return array_dict
         agg_dict = {}
         for k, v in array_dict.items():
-            agg_dict[k + '_mean'] = v.mean()
-            agg_dict[k + '_std'] = v.std()
+            agg_dict[k + "_mean"] = v.mean()
+            agg_dict[k + "_std"] = v.std()
         return agg_dict
 
 
