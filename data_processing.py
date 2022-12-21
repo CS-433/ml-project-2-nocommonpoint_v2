@@ -83,6 +83,14 @@ def load_passive_phone(pf_path):
     return csv.drop(["week"], axis=1)
 
 
+def load_passive_weather(pw_path):
+    csv = pd.read_csv(pw_path, parse_dates=["dt_passive"])
+    csv = csv.iloc[:, 3:]
+    csv.rename(columns={"dt_passive": "date"}, inplace=True)
+
+    return csv
+
+
 def file_md5(path):
     """Calculate and return the MD5 sum of a file in a memory-inefficient way."""
     with open(path, "rb") as fp:
@@ -114,15 +122,17 @@ def gen_cached_paths(name):
     names = (f"{name}_combined.pkl", f"{name}_merged.pkl", f"{name}_md5.txt")
     return [os.path.join("cache", f) for f in names]
 
+
 def hash_array_hex(arr):
     h = hashlib.blake2b(digest_size=8)
     h.update(arr.tobytes())
     return h.hexdigest()
 
+
 def make_cached_name(phq9, dailies, constants, prev_phq9, daily_reduction):
 
     parts = []
-    parts.append(f'thash({hash_array_hex(phq9.target.to_numpy())})')
+    parts.append(f"thash({hash_array_hex(phq9.target.to_numpy())})")
     parts.append(f'dailies({",".join(n for n, _ in dailies)})')
     parts.append(f"constants({len(constants)})")  # TODO: Oof
     parts.append(f"prevphq9({prev_phq9})")
@@ -173,7 +183,9 @@ def combine(
     # Loading up the cached version of the data, if it exists.
     md5 = None
     try:
-        cached_name = make_cached_name(phq9, dailies, constants, prev_phq9, daily_reduction)
+        cached_name = make_cached_name(
+            phq9, dailies, constants, prev_phq9, daily_reduction
+        )
     except TypeError as e:
         cached_name = None
         vprint("Failed to create cached name, caching aborted.")
