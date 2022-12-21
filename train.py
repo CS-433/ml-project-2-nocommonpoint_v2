@@ -183,7 +183,8 @@ def train_cv(
         verbose=verbose,
     )
 
-    combined = combined.reset_index()
+    if not use_demographics:
+        combined = combined.reset_index()
 
     model_type2cls = {
         "random-forest": (
