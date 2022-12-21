@@ -12,7 +12,7 @@ class XGBClassifier(BrightenModel):
         else:
             self.model = xgb.XGBClassifier(*args, objective='binary:logistic', **kwargs)
 
-    def fit(self, x: NDArray, y: NDArray):
+    def fit(self, x: NDArray, y: NDArray, xgval=None, yval=None):
         self.model.fit(x, y)
 
     def predict(self, x: NDArray) -> NDArray:

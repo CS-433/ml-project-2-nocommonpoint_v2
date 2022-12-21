@@ -51,7 +51,7 @@ class LitRNNModel(BrightenModel):
         x = df.drop(df.columns.intersection(drop_cols), axis=1).to_numpy()
         return x, y
 
-    def fit(self, x, y):
+    def fit(self, x, y, xval=None, yval=None):
         # here we go... get some data _from_ the data!
         num_classes = int(y.max() + 1)
         input_dim = x.shape[1] - 1 # except participant id
@@ -66,8 +66,17 @@ class LitRNNModel(BrightenModel):
         self.crnn = ClassifierRNN(num_classes, input_dim, **self.kwargs)
 
         # let the lightning strike!
-        lit = LitCRNN(self.crnn, num_classes)
-        trainer = pl.Trainer(max_epochs=20)
+        self.lit = lit = LitCRNN(self.crnn, num_classes)
+        trainer = pl.Trainer(max_epochs=300, auto_lr_find=False)
+        print(f'Auto-tuned learning rate set to {lit.lr}')
+        if xval is None:
+            trainer.fit(model=lit, train_dataloaders=loader)
+        else:
+            val_dataset = RNNDataset(xval, yval)
+            val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1)
+            trainer.fit(model=lit, train_dataloaders=loader, val_dataloaders=val_loader)
+    
+
         trainer.fit(model=lit, train_dataloaders=loader)
 
     def predict(self, x):
@@ -152,7 +161,8 @@ class LitCRNN(pl.LightningModule):
         super().__init__()
         self.crnn = crnn
         self.acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
-#         self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
+        self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
+        self.lr = 1e-3
 
     def training_step(self, batch, _): # batch_idx is the second arg
         # training_step defines the train loop.
@@ -168,19 +178,19 @@ class LitCRNN(pl.LightningModule):
         self.log('accuracy', self.acc)
         return loss
 
-#     def validation_step(self, batch, batch_idx):
-#         x, y = batch
-#         y_hat = self.crnn(x)
-#         y = y[0]
-#         y_hat = y_hat[0]
-#         self.val_acc(y_hat, y)
-# 
-#     def validation_epoch_end(self, validation_step_outputs):
-#         self.log('val-accuracy', self.val_acc.compute())
-#         self.val_acc.reset()
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self.crnn(x)
+        y = y[0]
+        y_hat = y_hat[0]
+        self.val_acc(y_hat, y)
+
+    def validation_epoch_end(self, validation_step_outputs):
+        self.log('val-accuracy', self.val_acc.compute())
+        self.val_acc.reset()
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.lr)
         # optimizer = optim.SGD(self.parameters(), lr=1e-1)
         return optimizer
 
