@@ -12,6 +12,22 @@ conda activate nocommonenv
 conda install --file requirements.txt -c conda-forge -c pytorch
 ```
 
+## Training a Simple Model
+
+Training a model does not take long and is as easy as calling the train function! For example, to train a random forest model with 10-fold cross-validation, location and mobility features and k = 1:
+
+```sh
+$ python -i train.py
+>>> train_cv(MODEL_TYPE='random-forest', TEST_TAKE_FIRST=1, SPLIT_BY_PARTICIPANT=True, 
+             dailies_names=['locations', 'mobility'], N_SPLIT=10, aggregate=True)
+{'train_bal_mean': 0.9535924165933917, 'train_bal_std': 0.002506950100629083, 
+'train_mean_mean': 0.9495050520572124, 'train_mean_std': 0.0027495540000864057, 
+'test_bal_mean': 0.3016172246722251, 'test_bal_std': 0.07304939578039911, 
+'test_mean_mean': 0.3638339057429249, 'test_mean_std': 0.06404656136461256}
+```
+
+The returned value is a dictionary containing the mean/std of metrics over all folds. For our experiments, check out the notebooks explained below.
+
 ## Our Reproduction Notebooks
 
 The notebooks for reproducing the numerical figures and tables we put in our project report and containing extra insights can be found under `plots/`. 
