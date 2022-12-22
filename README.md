@@ -28,6 +28,8 @@ $ python -i train.py
 
 The returned value is a dictionary containing the mean/std of metrics over all folds. For our experiments, check out the notebooks explained below.
 
+We strived to make this one as flexible and practical as possible!
+
 ## Our Reproduction Notebooks
 
 The notebooks for reproducing the numerical figures and tables we put in our project report and containing extra insights are listed here: 
