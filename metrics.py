@@ -1,3 +1,7 @@
+"""
+Contains a few simple functions for computing balanced accuracies, and sometimes plotting them.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 

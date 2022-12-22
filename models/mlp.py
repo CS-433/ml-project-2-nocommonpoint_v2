@@ -33,6 +33,7 @@ import torchmetrics
 
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
+
 class LitMLPModel(BrightenModel):
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -42,13 +43,15 @@ class LitMLPModel(BrightenModel):
     def fit(self, x, y, xval=None, yval=None):
         # here we go... get some data _from_ the data!
         num_classes = int(y.max() + 1)
-        input_dim = x.shape[1] # except participant id
-        print(f'Determined num_classes={num_classes} input_dim={input_dim}')
+        input_dim = x.shape[1]  # except participant id
+        print(f"Determined num_classes={num_classes} input_dim={input_dim}")
 
         # now, make it into a proper dataset
         # batch_size=1 since sequence lengths are varying
         dataset = MLPDataset(x, y)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True, drop_last=True)
+        loader = torch.utils.data.DataLoader(
+            dataset, batch_size=32, shuffle=True, drop_last=True
+        )
 
         # create a model
         self.mlp = ClassifierMLP(num_classes, input_dim, **self.kwargs)
@@ -57,7 +60,7 @@ class LitMLPModel(BrightenModel):
         self.lit = lit = LitMLP(self.mlp, num_classes)
         trainer = pl.Trainer(max_epochs=300, auto_lr_find=True)
         trainer.tune(model=lit, train_dataloaders=loader)
-        print(f'Auto-tuned learning rate set to {lit.lr}')
+        print(f"Auto-tuned learning rate set to {lit.lr}")
         if xval is None:
             trainer.fit(model=lit, train_dataloaders=loader)
         else:
@@ -67,23 +70,25 @@ class LitMLPModel(BrightenModel):
 
     def predict(self, x):
         if self.mlp is None:
-            raise RuntimeError('Cannot .predict(x) before .fit(x, y)!')
-# 
-#         dataset = MLPDataset(x)
-#         loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+            raise RuntimeError("Cannot .predict(x) before .fit(x, y)!")
+        #
+        #         dataset = MLPDataset(x)
+        #         loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 
         self.mlp.eval()
         with torch.no_grad():
             scores = self.mlp(torch.tensor(x).float()).numpy()
-            print('Scores shape:', scores.shape)
-#             outputs = [self.mlp(x).numpy()[0] for x in loader] # remove the batch axis
+            print("Scores shape:", scores.shape)
+        #             outputs = [self.mlp(x).numpy()[0] for x in loader] # remove the batch axis
         return np.argmax(scores, axis=1)
 
+
 class MLPDataset(torch.utils.data.Dataset):
-    """ 
-    Provide the out from RNNModel.xy_split; the first column of the array should be participants. 
+    """
+    Provide the out from RNNModel.xy_split; the first column of the array should be participants.
     The dataset will output each patient as an independent sequence for training.
     """
+
     def __init__(self, x, y=None):
         # made very awkward by the will to keep the same interface as random forest
         self.x = torch.tensor(x).float()
@@ -94,15 +99,17 @@ class MLPDataset(torch.utils.data.Dataset):
         scaler = preprocessing.StandardScaler()
         scaler.fit(xdf.drop(0, axis=1).to_numpy())
         i = 0
-        for _, g in xdf.groupby(0): # column 0 is participant_id
+        for _, g in xdf.groupby(0):  # column 0 is participant_id
             no_id = g.drop(0, axis=1)
-            x_tensor = torch.from_numpy(scaler.transform(no_id.to_numpy().astype(np.float32)))
-            
+            x_tensor = torch.from_numpy(
+                scaler.transform(no_id.to_numpy().astype(np.float32))
+            )
+
             if y is None:
                 self.participant_tensors.append(x_tensor)
             else:
                 n = x_tensor.shape[0]
-                y_tensor = torch.from_numpy(y[i:i+n].astype(np.int64))
+                y_tensor = torch.from_numpy(y[i : i + n].astype(np.int64))
                 i += n
 
                 self.participant_tensors.append((x_tensor, y_tensor))
@@ -131,6 +138,7 @@ class DummyDataset(torch.utils.data.Dataset):
     def __len__(self):
         return self.n
 
+
 class ClassifierMLP(nn.Module):
     def __init__(self, num_classes, input_size, hidden_size=128, num_layers=3):
         super().__init__()
@@ -140,30 +148,29 @@ class ClassifierMLP(nn.Module):
             nn.ReLU(),
         ]
         for _ in range(num_layers - 1):
-            lst.extend([
-                nn.Linear(hidden_size, hidden_size, bias=False),
-                nn.BatchNorm1d(hidden_size),
-                nn.ReLU(),
-            ])
-        self.net = nn.Sequential(
-            *lst,
-            nn.Linear(hidden_size, num_classes)
-        )
+            lst.extend(
+                [
+                    nn.Linear(hidden_size, hidden_size, bias=False),
+                    nn.BatchNorm1d(hidden_size),
+                    nn.ReLU(),
+                ]
+            )
+        self.net = nn.Sequential(*lst, nn.Linear(hidden_size, num_classes))
 
     def forward(self, x):
         return self.net(x)
-        
-        
+
+
 # define the LightningModule
 class LitMLP(pl.LightningModule):
     def __init__(self, mlp, n_classes):
         super().__init__()
         self.mlp = mlp
-        self.acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
-        self.val_acc = torchmetrics.Accuracy(task='multiclass', num_classes=n_classes)
+        self.acc = torchmetrics.Accuracy(task="multiclass", num_classes=n_classes)
+        self.val_acc = torchmetrics.Accuracy(task="multiclass", num_classes=n_classes)
         self.lr = 1e-4
 
-    def training_step(self, batch, _): # batch_idx is the second arg
+    def training_step(self, batch, _):  # batch_idx is the second arg
         # training_step defines the train loop.
         # it is independent of forward
         x, y = batch
@@ -172,16 +179,17 @@ class LitMLP(pl.LightningModule):
         self.acc(y_hat, y)
         # Logging to TensorBoard by default
         self.log("train_loss", loss)
-        self.log('accuracy', self.acc)
+        self.log("accuracy", self.acc)
         return loss
 
     def validation_step(self, batch, _):
         x, y = batch
         y_hat = self.mlp(x)
         self.val_acc(y_hat, y)
-# 
+
+    #
     def validation_epoch_end(self, validation_step_outputs):
-        self.log('val-accuracy', self.val_acc.compute())
+        self.log("val-accuracy", self.val_acc.compute())
         self.val_acc.reset()
 
     def configure_optimizers(self):
@@ -191,5 +199,5 @@ class LitMLP(pl.LightningModule):
 
 
 # init the autoencoder
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

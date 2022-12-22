@@ -1,3 +1,7 @@
+""" 
+Contains generators for train-test splits; randomly or per-participant, with or without cross-validation.
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -19,6 +23,7 @@ def _make_group_indices(df):
         i += 1
     return np.concatenate(arrs)
 
+
 def _xy_split(csv):
     y = csv["target"].to_numpy()
     x = csv.drop(
@@ -32,6 +37,7 @@ def _from_inds(x, y, train_i, test_i):
         return x[train_i], x[test_i], y[train_i], y[test_i]
     except IndexError:  # can happen if test set becomes empty in LeaveOneGroupOut CV
         return None, None, None, None
+
 
 def _test_take_first(df, train_i, test_i, k):
     if k == 0:
@@ -75,7 +81,7 @@ def per_row_cv(df, n_splits=5, split_fn=DEFAULT_SPLIT_FN):
 def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=DEFAULT_SPLIT_FN):
     """
     Call this to create an x_train, x_test, y_train, y_test iterator with patient splitting.
-    n_splits = None implies LeaveOneGroupOut, which is bad
+    n_splits = None implies LeaveOneGroupOut, which has too high variance to be useful.
     """
     # assuming df contains the data points in order
     groups = _make_group_indices(df)
@@ -86,16 +92,6 @@ def per_patient_cv(df, n_splits=5, test_take_first=0, split_fn=DEFAULT_SPLIT_FN)
     x, y = split_fn(df)
     if n_splits is None:
         print(f"# LeaveOneOut Splits: {f.get_n_splits(x, y, groups)}")
-    x, y = _xy_split(df)
-    if n_splits is None:
-        print(f'# LeaveOneOut Splits: {f.get_n_splits(x, y, groups)}')
     for train_i, test_i in f.split(x, y, groups=groups):
         train_i, test_i = _test_take_first(df, train_i, test_i, test_take_first)
         yield _from_inds(x, y, train_i, test_i)
-
-class Namespace:
-    pass
-
-
-def aggregate_dict(d):
-    return {k: v.mean() for k, v in d.items()}

@@ -1,3 +1,11 @@
+"""
+This module contains our workhorse functions train(...) and train_cv(...), which we use
+for pretty much all our experiments.
+
+Please see train_cv's documentation for details!
+"""
+
+
 from collections import defaultdict
 from pathlib import Path
 from typing import Union, Optional
@@ -7,6 +15,7 @@ from numpy.typing import NDArray
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.dummy import DummyRegressor
 from sklearn.feature_selection import SelectFromModel
 
 import cv
@@ -82,6 +91,8 @@ def train_cv(
     model_kwargs: Optional[dict] = None,
     use_demographics: bool = True,
     dir: Union[str, Path] = DATADIR,
+    use_prev_phq9: bool = False,
+    daily_reduction: Sequence[str] = ("mean", "std"),
 ):
     """
     Run an experiment optionally using cross-validation given model and data properties.
@@ -148,7 +159,12 @@ def train_cv(
     use_demographics: bool
         If specified as False, demographics information will be removed from the data.
     dir: Union[str, Path]
-        Specifies the directory containing the csv data
+        Specifies the directory containing the csv data.
+    use_prev_phq9: bool
+        If specified, include previous PHQ9 results as a feature.
+    daily_reduction: Sequence[str]
+        How to aggregate the daily statistics when creating the dataset. Mean and stdev by
+        default, median alone seems best.
 
     Returns
     ------
@@ -179,8 +195,9 @@ def train_cv(
         phq9,
         dailies=dailies,
         constants=[demographics] if use_demographics else [],
-        prev_phq9=False,
+        prev_phq9=use_prev_phq9,
         verbose=verbose,
+        daily_reduction=daily_reduction,
     )
 
     if not use_demographics:
@@ -195,10 +212,11 @@ def train_cv(
         "mlp": (models.LitMLPModel, {"hidden_size": 128}),
         "xgboost": (models.XGBClassifier, {"n_estimators": 100, "reg_lambda": 1e-2}),
         "mostfreq": (models.MostFrequentPredictor, {}),
+        "constparticipant": (models.ConstParticipantModel, {}),
     }
 
     model_class, default_kwargs = model_type2cls[MODEL_TYPE]
-    
+
     if model_kwargs is None:
         model_kwargs = default_kwargs
 
@@ -246,9 +264,16 @@ def train_cv(
         if TYPE == "regression":
             # Regression has only limited support for basic trials with random forests
 
-            model = RandomForestRegressor(
-                n_estimators=300, n_jobs=-1, random_state=SEED
-            )
+            if MODEL_TYPE == "random-forest":
+                model = RandomForestRegressor(
+                    n_estimators=300, n_jobs=-1, random_state=SEED
+                )
+            elif MODEL_TYPE == "mostfreq":
+                model = DummyRegressor(strategy="mean")
+            else:
+                raise ValueError(
+                    f'Model type "{MODEL_TYPE}" not supported for regression.'
+                )
             model.fit(x_train, y_train)
 
             train_rmse = rmse(y_train, model.predict(x_train))
@@ -344,13 +369,15 @@ def train_cv(
         elif TYPE == "classification":
             return metric_dict["train_bal"][0], metric_dict["test_bal"][0]
     else:
-        array_dict = { k: np.array(v) for k, v in metric_dict.items() }  # convert lists to arrays
+        array_dict = {
+            k: np.array(v) for k, v in metric_dict.items()
+        }  # convert lists to arrays
         if not aggregate:
             return array_dict
         agg_dict = {}
         for k, v in array_dict.items():
-            agg_dict[k + '_mean'] = v.mean()
-            agg_dict[k + '_std'] = v.std()
+            agg_dict[k + "_mean"] = v.mean()
+            agg_dict[k + "_std"] = v.std()
         return agg_dict
 
 
@@ -405,6 +432,7 @@ def feature_selection_results(
         )
 
     return train_score_sel, test_score_sel
+
 
 PARTITIONS = {
     "P0": {
