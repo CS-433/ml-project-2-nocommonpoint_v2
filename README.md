@@ -30,10 +30,20 @@ The returned value is a dictionary containing the mean/std of metrics over all f
 
 ## Our Reproduction Notebooks
 
-The notebooks for reproducing the numerical figures and tables we put in our project report and containing extra insights can be found under `plots/`. 
+The notebooks for reproducing the numerical figures and tables we put in our project report and containing extra insights are listed here: 
 
 * `exploration_overfitting.ipynb`: Contains code to reproduce our data exploration plots/info along with regularization attempts.
-* `clean-csv.ipynb`: The initial notebook we used to clean up the original CSV's under `original_data`.
+* `plots/plots.ipynb`: Generating the data for different feature choices and different target classes.
+* `feateng.ipynb`: Experiments and results for feature engineering.
+* `Models.ipynb`: A small notebook training with different models (random forest, XGBoost, MLP, RNN) and comparing their results, supplementary to the report.
+
+
+We also have some notebooks we used during development that are not directly relevant to the report under `dev/` for the sake of completeness, they can be moved to the root directory and ran:
+* `clean-csv.ipynb`: The initial notebook we used to clean up the original CSV's under `original_data/` and transformed them to the ones under `data/`.
+* `w12.ipynb` and `w13.ipynb`: Extensive experiments with different target classes.
+* `feature_selection.ipynb`: Feature selection on random forests, not included in the report since it had a small effect.
+* `Foresting.ipynb`: Contains many initial experiments, including class distributions, per-class accuracies etc.ß
+* `EDA.ipynb`: Initial data exploration.
 
 ## Summary of Our Project Layout/Code Files
 
